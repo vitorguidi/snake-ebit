@@ -1,18 +1,20 @@
 package main
 
 import (
-	"image/color"
+	"bytes"
+	"embed"
+	_ "image/jpeg" // Import for PNG decoding
 	"log"
 	"math/rand/v2"
 	"slices"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 const (
-	squareSide  = 20
+	squareSide  = 60
 	pixelWidth  = 800
 	pixelHeight = 600
 	interval    = 150 * time.Millisecond
@@ -28,6 +30,47 @@ var (
 		ebiten.KeyD: {1, 0},
 	}
 )
+
+//go:embed images/*
+var imageFS embed.FS
+
+var (
+	headImage *ebiten.Image
+	bodyImage *ebiten.Image
+	foodImage *ebiten.Image
+)
+
+func init() {
+	// Load Nyan Cat Head
+	headBytes, err := imageFS.ReadFile("images/head.jpeg")
+	if err != nil {
+		log.Fatal(err)
+	}
+	headImage, _, err = ebitenutil.NewImageFromReader(bytes.NewReader(headBytes))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Load Rainbow Segment
+	bodyBytes, err := imageFS.ReadFile("images/body.jpeg")
+	if err != nil {
+		log.Fatal(err)
+	}
+	bodyImage, _, err = ebitenutil.NewImageFromReader(bytes.NewReader(bodyBytes))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Load Burger Food
+	foodBytes, err := imageFS.ReadFile("images/food.jpeg")
+	if err != nil {
+		log.Fatal(err)
+	}
+	foodImage, _, err = ebitenutil.NewImageFromReader(bytes.NewReader(foodBytes))
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 
 type point struct {
 	x, y int
@@ -123,26 +166,20 @@ func (g *Game) Update() error {
 // Draw draws the game screen.
 // Draw is called every frame (typically 1/60[s] for 60Hz display).
 func (g *Game) Draw(screen *ebiten.Image) {
-	for _, p := range g.snake.body {
-		vector.DrawFilledRect(
-			screen,
-			float32(p.x*squareSide),
-			float32(p.y*squareSide),
-			squareSide,
-			squareSide,
-			color.White,
-			true,
-		)
+	for _, p := range g.snake.body[0 : len(g.snake.body)-1] {
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(p.x*squareSide), float64(p.y*squareSide))
+		screen.DrawImage(bodyImage, op)
 	}
-	vector.DrawFilledRect(
-		screen,
-		float32(g.food.x*squareSide),
-		float32(g.food.y*squareSide),
-		squareSide,
-		squareSide,
-		color.White,
-		true,
-	)
+
+	head := g.snake.head()
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(head.x*squareSide), float64(head.y*squareSide))
+	screen.DrawImage(headImage, op)
+
+	op = &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(g.food.x*squareSide), float64(g.food.y*squareSide))
+	screen.DrawImage(foodImage, op)
 }
 
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
